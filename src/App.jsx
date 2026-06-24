@@ -115,7 +115,7 @@ const PROJECTS = [
     desc: "Full-featured MERN food platform with user module, admin dashboard, real-time cart, JWT auth, and live order tracking.",
     iconName: "rocket", color: "#00d4ff", type: "fullstack",
     img: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=700&q=80",
-    stat: "40% faster order flow", github: `https://food-app-frontend-biy2.onrender.com/`,
+    stat: "40% faster order flow", github: SOCIAL.github,
   },
   {
     title: "Complaint Analysis System",
@@ -179,7 +179,7 @@ const TIMELINE = [
 function useGSAP(cb, deps = []) {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const run = () => cb(window.gsap, window.ScrollTrigger, window.SplitText, window.ScrambleTextPlugin);
+    const run = () => cb(window.gsap, window.ScrollTrigger);
     if (window.gsap && window.ScrollTrigger) { run(); return; }
     const id = setInterval(() => {
       if (window.gsap && window.ScrollTrigger) { clearInterval(id); run(); }
@@ -358,42 +358,41 @@ function Counter({ item }) {
   );
 }
 
-/* ───── Section Header (GSAP SplitText) ───── */
+/* ───── Section Header (custom word-split, no plugin needed) ───── */
 function SectionHeader({ title, sub }) {
   const titleRef = useRef(null);
   const subRef   = useRef(null);
   const lineRef  = useRef(null);
-  useGSAP((gsap, ST, SplitText) => {
-    if (!titleRef.current) return;
-    if (SplitText) {
-      const split = new SplitText(titleRef.current, { type: "chars,words" });
-      gsap.from(split.chars, {
-        scrollTrigger: { trigger: titleRef.current, start: "top 88%", toggleActions: "play none none reverse" },
-        opacity: 0, y: 60, rotateX: -90, stagger: .045, duration: .85, ease: "back.out(1.7)",
-        transformOrigin: "center top",
-      });
-    } else {
-      gsap.from(titleRef.current, {
-        scrollTrigger: { trigger: titleRef.current, start: "top 88%" },
-        opacity: 0, y: 40, duration: .8, ease: "power3.out",
-      });
-    }
+  useGSAP((gsap, ST) => {
+    if (!titleRef.current || !ST) return;
+    /* Custom word-split */
+    const words = titleRef.current.textContent.trim().split(/\s+/);
+    titleRef.current.innerHTML = words.map(w =>
+      `<span style="display:inline-block;overflow:hidden;vertical-align:bottom;margin-right:0.22em">`+
+      `<span class="sh-word" style="display:inline-block">${w}</span></span>`
+    ).join("");
+    const wordEls = titleRef.current.querySelectorAll(".sh-word");
+    gsap.from(wordEls, {
+      scrollTrigger:{ trigger:titleRef.current, start:"top 88%", toggleActions:"play none none reverse" },
+      opacity:0, y:60, rotateX:-70, stagger:.09, duration:.9, ease:"back.out(1.8)",
+      transformOrigin:"bottom center",
+    });
     gsap.from(subRef.current, {
-      scrollTrigger: { trigger: subRef.current, start: "top 90%" },
-      opacity: 0, y: -22, duration: .6, ease: "power3.out",
+      scrollTrigger:{ trigger:subRef.current, start:"top 90%" },
+      opacity:0, y:-22, duration:.6, ease:"power3.out",
     });
     gsap.from(lineRef.current, {
-      scrollTrigger: { trigger: lineRef.current, start: "top 92%" },
-      scaleX: 0, transformOrigin: "left center", duration: .9, ease: "power4.out", delay: .25,
+      scrollTrigger:{ trigger:lineRef.current, start:"top 92%" },
+      scaleX:0, transformOrigin:"left center", duration:.9, ease:"power4.out", delay:.25,
     });
   }, [title]);
   return (
-    <div style={{ textAlign: "center", marginBottom: 56 }}>
-      <div ref={subRef} style={{ fontFamily: "'Orbitron',monospace", fontSize: 11, letterSpacing: 5, color: "#00d4ff", textTransform: "uppercase", marginBottom: 14 }}>{sub}</div>
-      <h2 ref={titleRef} style={{ fontSize: "clamp(30px,5.5vw,52px)", fontWeight: 900, fontFamily: "'Orbitron',monospace", background: "linear-gradient(135deg,#fff 40%,#00d4ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, lineHeight: 1.1, perspective: 600 }}>
+    <div style={{ textAlign:"center", marginBottom:56 }}>
+      <div ref={subRef} style={{ fontFamily:"'Orbitron',monospace", fontSize:11, letterSpacing:5, color:"#00d4ff", textTransform:"uppercase", marginBottom:14 }}>{sub}</div>
+      <h2 ref={titleRef} data-split style={{ fontSize:"clamp(30px,5.5vw,52px)", fontWeight:900, fontFamily:"'Orbitron',monospace", background:"linear-gradient(135deg,#fff 40%,#00d4ff)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, lineHeight:1.1, perspective:600 }}>
         {title}
       </h2>
-      <div ref={lineRef} style={{ width: 70, height: 3, background: "linear-gradient(90deg,#00d4ff,#a855f7)", margin: "18px auto 0", borderRadius: 2 }} />
+      <div ref={lineRef} style={{ width:70, height:3, background:"linear-gradient(90deg,#00d4ff,#a855f7)", margin:"18px auto 0", borderRadius:2 }}/>
     </div>
   );
 }
@@ -535,14 +534,19 @@ export default function Portfolio() {
   const heroTagRef   = useRef(null);
   const cursorRef    = useRef(null);
   const cursorDotRef = useRef(null);
+  const loaderRef    = useRef(null);
+  const loaderBarRef = useRef(null);
+  const heroSectionRef = useRef(null);
+  const velRef       = useRef({ x:0, y:0, lastX:0, lastY:0 });
+  const [loading, setLoading] = useState(true);
+  const [loadPct,  setLoadPct]  = useState(0);
 
-  /* Load GSAP + plugins + EmailJS from CDN */
+  /* ── Load GSAP (free CDN only) + EmailJS ── */
   useEffect(() => {
     const scripts = [
       "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js",
-      "https://assets.codepen.io/16327/SplitText3.min.js",
       "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js",
     ];
     const load = src => new Promise(res => {
@@ -553,158 +557,259 @@ export default function Portfolio() {
     });
     (async () => {
       for (const s of scripts) await load(s);
-      if (window.gsap && window.ScrollTrigger) {
+      if (window.gsap && window.ScrollTrigger)
         window.gsap.registerPlugin(window.ScrollTrigger, window.ScrollToPlugin);
-        if (window.SplitText)          window.gsap.registerPlugin(window.SplitText);
-        if (window.ScrambleTextPlugin) window.gsap.registerPlugin(window.ScrambleTextPlugin);
-      }
-      if (window.emailjs) {
-        window.emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-      }
+      if (window.emailjs) window.emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
     })();
   }, []);
 
-/* ───── Local scramble text fallback (replaces GSAP ScrambleTextPlugin) ───── */
-function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", ease = t => t } = {}) {
-  if (!el) return;
-  const original = el.textContent || "";
-  const len = original.length;
-  const start = performance.now();
-  function frame(now) {
-    const t = Math.min(1, (now - start) / duration);
-    const reveal = Math.floor(ease(t) * len);
-    let out = "";
-    for (let i = 0; i < len; i++) {
-      out += i < reveal ? original[i] : chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    el.textContent = out;
-    if (t < 1) requestAnimationFrame(frame);
-    else el.textContent = original;
-  }
-  requestAnimationFrame(frame);
-}
+  /* ── Cinematic Loading Screen ── */
+  useEffect(() => {
+    let pct = 0;
+    const iv = setInterval(() => {
+      pct += Math.random() * 16 + 5;
+      if (pct >= 100) { pct = 100; clearInterval(iv); }
+      setLoadPct(Math.min(Math.round(pct), 100));
+    }, 110);
+    const t = setTimeout(() => {
+      const gsap = window.gsap;
+      if (gsap && loaderRef.current) {
+        gsap.timeline()
+          .to(loaderBarRef.current, { scaleX:1, duration:.3, ease:"power2.out" })
+          .to(loaderRef.current, {
+            clipPath:"inset(0 0 100% 0)", duration:1.1, ease:"expo.inOut", delay:.15,
+            onComplete: () => setLoading(false),
+          });
+      } else { setLoading(false); }
+    }, 1900);
+    return () => { clearInterval(iv); clearTimeout(t); };
+  }, []);
 
-  /* Custom cursor */
+  /* ── Velocity-skew cursor ── */
   useEffect(() => {
     const ring = cursorRef.current;
     const dot  = cursorDotRef.current;
     if (!ring || !dot) return;
-    let mx = 0, my = 0, cx = 0, cy = 0;
-    const move = e => { mx = e.clientX; my = e.clientY; };
+    let mx=0,my=0,cx=0,cy=0,raf;
+    const move = e => {
+      velRef.current.x = e.clientX - velRef.current.lastX;
+      velRef.current.y = e.clientY - velRef.current.lastY;
+      velRef.current.lastX = e.clientX; velRef.current.lastY = e.clientY;
+      mx = e.clientX; my = e.clientY;
+    };
     const tick = () => {
-      cx += (mx - cx) * .12; cy += (my - cy) * .12;
-      ring.style.transform = `translate(${cx - 18}px,${cy - 18}px)`;
-      dot.style.transform  = `translate(${mx - 4}px,${my - 4}px)`;
-      requestAnimationFrame(tick);
+      cx += (mx-cx)*.1; cy += (my-cy)*.1;
+      const sx = Math.max(-18,Math.min(18, velRef.current.x*.35));
+      const sy = Math.max(-18,Math.min(18, velRef.current.y*.35));
+      ring.style.transform = `translate(${cx-18}px,${cy-18}px) skew(${sx}deg,${sy}deg)`;
+      dot.style.transform  = `translate(${mx-4}px,${my-4}px)`;
+      velRef.current.x *= .85; velRef.current.y *= .85;
+      raf = requestAnimationFrame(tick);
     };
     addEventListener("mousemove", move);
-    requestAnimationFrame(tick);
-    return () => removeEventListener("mousemove", move);
-  }, []);
+    raf = requestAnimationFrame(tick);
+    const grow   = () => { if(window.gsap) window.gsap.to(ring,{width:58,height:58,borderColor:"rgba(168,85,247,.7)",duration:.3,ease:"power2.out"}); };
+    const shrink = () => { if(window.gsap) window.gsap.to(ring,{width:36,height:36,borderColor:"rgba(0,212,255,.55)",duration:.3,ease:"power2.out"}); };
+    const attach = () => document.querySelectorAll("a,button").forEach(el=>{el.addEventListener("mouseenter",grow);el.addEventListener("mouseleave",shrink);});
+    if (!loading) attach(); else { const obs=new MutationObserver(attach); obs.observe(document.body,{childList:true,subtree:true}); return ()=>obs.disconnect(); }
+    return () => { removeEventListener("mousemove",move); cancelAnimationFrame(raf); };
+  }, [loading]);
 
-  /* Hero GSAP SplitText entrance */
-  useGSAP((gsap, ST, SplitText, Scramble) => {
-    if (!heroNameRef.current) return;
-    const tl = gsap.timeline({ delay: .4 });
-    if (SplitText) {
-      const split = new SplitText(heroNameRef.current, { type: "chars" });
-      tl.from(split.chars, {
-        opacity: 0, y: 130, rotateY: 90, skewX: 15,
-        stagger: .055, duration: 1.1, ease: "expo.out",
-        transformOrigin: "left center",
-      });
-    } else {
-      tl.from(heroNameRef.current, { opacity: 0, y: 80, duration: 1.1, ease: "expo.out" });
-    }
-    tl.from(heroTagRef.current,  { opacity: 0, x: -50, duration: .75, ease: "power3.out" }, "-=.6")
-      .from(heroSubRef.current,  { opacity: 0, y: 30,  duration: .7,  ease: "power3.out" }, "-=.4")
-      .from(heroBtnsRef.current ? Array.from(heroBtnsRef.current.children) : [], {
-        opacity: 0, y: 24, stagger: .12, duration: .65, ease: "back.out(1.5)"
-      }, "-=.35");
-
-    /* ScrambleText hover on name */
-    const orig = heroNameRef.current?.textContent || '';
-    if (heroNameRef.current) {
-      heroNameRef.current.addEventListener("mouseenter", () => {
-        if (Scramble) {
-          gsap.to(heroNameRef.current, {
-            duration: .9,
-            scrambleText: { text: orig, chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", revealDelay: .3, speed: 1.2 },
-            ease: "none",
-          });
-        } else {
-          localScramble(heroNameRef.current, { duration: 900 });
-        }
-      });
-    }
-  }, []);
-
-  /* Scroll-based reveals with ScrollTrigger */
+  /* ── Hero: Custom SplitText 3D entrance + ScrambleText + mouse parallax ── */
   useGSAP((gsap, ST) => {
-    if (!ST) return;
-    gsap.utils.toArray(".skill-card").forEach((el, i) => {
-      gsap.from(el, {
-        scrollTrigger: { trigger: el, start: "top 88%", toggleActions: "play none none reverse" },
-        opacity: 0, y: 55, rotateX: -20, duration: .8, delay: i * .08,
-        ease: "back.out(1.4)", transformOrigin: "top center",
-      });
-    });
-    gsap.utils.toArray(".exp-card").forEach((el, i) => {
-      gsap.from(el, {
-        scrollTrigger: { trigger: el, start: "top 88%" },
-        opacity: 0, x: i % 2 === 0 ? -70 : 70, duration: .85, ease: "power3.out",
-      });
-    });
-    gsap.utils.toArray(".proj-card").forEach((el, i) => {
-      gsap.from(el, {
-        scrollTrigger: { trigger: el, start: "top 88%" },
-        opacity: 0, y: 75, duration: .85, delay: i * .09, ease: "power3.out",
-      });
-    });
-    gsap.utils.toArray(".tl-item").forEach((el, i) => {
-      gsap.from(el, {
-        scrollTrigger: { trigger: el, start: "top 90%" },
-        opacity: 0, x: -55, duration: .7, delay: i * .1, ease: "power3.out",
-      });
-    });
-    gsap.utils.toArray(".ach-card").forEach((el, i) => {
-      gsap.from(el, {
-        scrollTrigger: { trigger: el, start: "top 90%" },
-        opacity: 0, scale: .75, duration: .65, delay: i * .09, ease: "back.out(1.7)",
-      });
-    });
-    gsap.utils.toArray(".cert-badge").forEach((el, i) => {
-      gsap.from(el, {
-        scrollTrigger: { trigger: el, start: "top 92%" },
-        opacity: 0, y: 22, duration: .5, delay: i * .04, ease: "power2.out",
-      });
-    });
-    /* Horizontal pin-scroll for skills section on desktop */
-    const skillsWrap = document.querySelector(".marquee-inner");
-    if (skillsWrap && window.innerWidth > 900) {
-      gsap.to(skillsWrap, {
-        scrollTrigger: { trigger: ".skills-pin", pin: false, scrub: 1.2 },
-        ease: "none",
-      });
-    }
-  }, []);
+    if (!heroNameRef.current || loading) return;
 
-  /* Active nav */
+    /* ── Custom SplitText: wrap each char in a span ── */
+    const splitIntoChars = (el) => {
+      const text = el.textContent;
+      el.innerHTML = text.split("").map((ch, i) =>
+        `<span class="split-char" style="display:inline-block;overflow:hidden;vertical-align:bottom">`+
+        `<span class="split-char-inner" style="display:inline-block">${ch === " " ? "&nbsp;" : ch}</span></span>`
+      ).join("");
+      return el.querySelectorAll(".split-char-inner");
+    };
+
+    const chars = splitIntoChars(heroNameRef.current);
+    gsap.set(heroNameRef.current, { perspective: 900 });
+    const tl = gsap.timeline({ delay: .15 });
+    tl.from(chars, {
+      opacity: 0, y: 170, rotateX: -115, skewX: 18,
+      stagger: { each: .048, from: "start" },
+      duration: 1.25, ease: "expo.out", transformOrigin: "50% 100%",
+    });
+
+    tl.from(heroTagRef.current,  { opacity:0, x:-60, duration:.8,  ease:"power4.out" }, "-=.75")
+      .from(heroSubRef.current,  { opacity:0, y:40,  duration:.7,  ease:"power3.out" }, "-=.5");
+    if (heroBtnsRef.current)
+      tl.from(Array.from(heroBtnsRef.current.children), {
+        opacity:0, y:32, scale:.82, stagger:.09, duration:.75, ease:"back.out(2)"
+      }, "-=.4");
+
+    /* ── Custom ScrambleText: pure JS, zero licensing ── */
+    const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*01";
+    const scramble = (el, finalText, duration = 1100) => {
+      let start = null;
+      const frame = (ts) => {
+        if (!start) start = ts;
+        const prog = Math.min((ts - start) / duration, 1);
+        const revealCount = Math.floor(prog * finalText.length);
+        el.textContent = finalText.split("").map((ch, i) => {
+          if (ch === " ") return " ";
+          if (i < revealCount) return ch;
+          return CHARS[Math.floor(Math.random() * CHARS.length)];
+        }).join("");
+        if (prog < 1) requestAnimationFrame(frame);
+        else el.textContent = finalText;
+      };
+      requestAnimationFrame(frame);
+    };
+
+    /* Re-get plain text after split (split changed innerHTML) */
+    const origName = "KARRI VIJAY";
+    heroNameRef.current.addEventListener("mouseenter", () => {
+      /* Flatten back to plain text before scrambling */
+      heroNameRef.current.textContent = origName;
+      scramble(heroNameRef.current, origName, 1100);
+      /* Re-apply gradient via className trick after scramble */
+      setTimeout(() => {
+        if (heroNameRef.current) splitIntoChars(heroNameRef.current);
+      }, 1200);
+    });
+
+    /* Mouse-parallax in hero */
+    const hero = heroSectionRef.current;
+    if (hero) {
+      hero.addEventListener("mousemove", e => {
+        const r  = hero.getBoundingClientRect();
+        const dx = (e.clientX - r.left) / r.width  - .5;
+        const dy = (e.clientY - r.top)  / r.height - .5;
+        gsap.to(".globe-wrap",  { rotateY:dx*22, rotateX:-dy*16, duration:1.2, ease:"power1.out", transformPerspective:1200 });
+        gsap.to(".hero-content",{ x:dx*16, y:dy*9, duration:1.5, ease:"power1.out" });
+      });
+      hero.addEventListener("mouseleave", () =>
+        gsap.to([".globe-wrap",".hero-content"], { x:0,y:0,rotateX:0,rotateY:0, duration:1.6, ease:"power3.out" })
+      );
+    }
+  }, [loading]);
+
+  /* ── Scroll reveals: per-element GSAP animations ── */
+  useGSAP((gsap, ST) => {
+    if (!ST || loading) return;
+
+    /* Skill cards: 3D flip-in + live mouse tilt */
+    gsap.utils.toArray(".skill-card").forEach((el,i) => {
+      gsap.from(el,{
+        scrollTrigger:{trigger:el,start:"top 90%",toggleActions:"play none none reverse"},
+        opacity:0, y:65, rotateX:-28, scale:.9, duration:1,
+        delay:i*.08, ease:"back.out(1.6)", transformOrigin:"top center",
+      });
+      el.addEventListener("mousemove", e => {
+        const r=el.getBoundingClientRect();
+        const dx=(e.clientX-r.left)/r.width-.5, dy=(e.clientY-r.top)/r.height-.5;
+        gsap.to(el,{rotateY:dx*20,rotateX:-dy*14,scale:1.05,duration:.35,ease:"power2.out",transformPerspective:900});
+      });
+      el.addEventListener("mouseleave",()=>gsap.to(el,{rotateY:0,rotateX:0,scale:1,duration:.7,ease:"elastic.out(1,.55)"}));
+    });
+
+    /* Experience cards: cinematic slide from sides */
+    gsap.utils.toArray(".exp-card").forEach((el,i) => {
+      gsap.from(el,{
+        scrollTrigger:{trigger:el,start:"top 88%"},
+        opacity:0, x:i%2===0?-90:90, rotateY:i%2===0?-18:18,
+        duration:1, ease:"power4.out",
+      });
+    });
+
+    /* Project cards: depth scale + 3D tilt */
+    gsap.utils.toArray(".proj-card").forEach((el,i) => {
+      gsap.from(el,{
+        scrollTrigger:{trigger:el,start:"top 88%"},
+        opacity:0, y:90, scale:.87, rotateX:-12,
+        duration:1, delay:i*.1, ease:"back.out(1.5)", transformOrigin:"bottom center",
+      });
+      el.addEventListener("mousemove", e => {
+        const r=el.getBoundingClientRect();
+        const dx=(e.clientX-r.left)/r.width-.5, dy=(e.clientY-r.top)/r.height-.5;
+        gsap.to(el,{rotateY:dx*14,rotateX:-dy*10,scale:1.03,duration:.35,ease:"power2.out",transformPerspective:900});
+      });
+      el.addEventListener("mouseleave",()=>gsap.to(el,{rotateY:0,rotateX:0,scale:1,duration:.7,ease:"elastic.out(1,.55)"}));
+    });
+
+    /* Timeline: staggered slide with dot pulse burst */
+    gsap.utils.toArray(".tl-item").forEach((el,i) => {
+      gsap.from(el,{
+        scrollTrigger:{trigger:el,start:"top 90%"},
+        opacity:0, x:-70, duration:.8, delay:i*.1, ease:"power3.out",
+      });
+    });
+
+    /* Achievement cards: scale-bounce with rotation */
+    gsap.utils.toArray(".ach-card").forEach((el,i) => {
+      gsap.from(el,{
+        scrollTrigger:{trigger:el,start:"top 90%"},
+        opacity:0, scale:.65, rotateZ:i%2===0?-6:6,
+        duration:.75, delay:i*.08, ease:"back.out(2.2)",
+      });
+    });
+
+    /* Cert badges: wave cascade */
+    gsap.utils.toArray(".cert-badge").forEach((el,i) => {
+      gsap.from(el,{
+        scrollTrigger:{trigger:el,start:"top 92%"},
+        opacity:0, y:30, rotateX:-50, duration:.55, delay:i*.04,
+        ease:"power3.out", transformOrigin:"bottom center",
+      });
+    });
+
+    /* Marquee velocity on scroll events */
+    ST.addEventListener("scrollStart",() => gsap.to(".marquee-inner",{animationDuration:"7s",duration:.5,ease:"power2.out"}));
+    ST.addEventListener("scrollEnd",  () => gsap.to(".marquee-inner",{animationDuration:"24s",duration:1.5,ease:"power2.out"}));
+
+    /* Parallax layers */
+    gsap.utils.toArray(".parallax-slow").forEach(el =>
+      gsap.to(el,{y:-55,ease:"none",scrollTrigger:{trigger:el.parentElement,scrub:2}})
+    );
+    gsap.utils.toArray(".parallax-fast").forEach(el =>
+      gsap.to(el,{y:-130,ease:"none",scrollTrigger:{trigger:el.parentElement,scrub:1.4}})
+    );
+
+    /* Contact form reveal */
+    const cf = document.querySelector(".contact-form");
+    if (cf) gsap.from(cf,{scrollTrigger:{trigger:cf,start:"top 85%"},opacity:0,y:65,scale:.96,duration:1.1,ease:"power3.out"});
+
+    /* Magnetic buttons — subtle pull toward cursor */
+    document.querySelectorAll(".magnetic").forEach(el => {
+      el.addEventListener("mousemove", e => {
+        const r=el.getBoundingClientRect();
+        const dx=(e.clientX-r.left-r.width/2)*.28;
+        const dy=(e.clientY-r.top-r.height/2)*.28;
+        gsap.to(el,{x:dx,y:dy,duration:.35,ease:"power2.out"});
+      });
+      el.addEventListener("mouseleave",()=>gsap.to(el,{x:0,y:0,duration:.6,ease:"elastic.out(1,.5)"}));
+    });
+
+  }, [loading]);
+
+  /* ── Nav stagger in after load ── */
+  useGSAP((gsap) => {
+    if (loading) return;
+    gsap.from(".nd button",{opacity:0,y:-22,stagger:.07,duration:.65,ease:"power3.out",delay:.1});
+  }, [loading]);
+
+  /* ── Active nav tracking ── */
   useEffect(() => {
     const secs = ["home","about","skills","experience","projects","achievements","contact"];
     const h = () => {
-      for (let i = secs.length - 1; i >= 0; i--) {
+      for (let i=secs.length-1; i>=0; i--) {
         const el = document.getElementById(secs[i]);
-        if (el && scrollY >= el.offsetTop - 220) {
-          setActive(secs[i][0].toUpperCase() + secs[i].slice(1)); break;
-        }
+        if (el && scrollY >= el.offsetTop-220) { setActive(secs[i][0].toUpperCase()+secs[i].slice(1)); break; }
       }
     };
-    addEventListener("scroll", h);
-    return () => removeEventListener("scroll", h);
+    addEventListener("scroll",h);
+    return () => removeEventListener("scroll",h);
   }, []);
 
-  const filteredProjects = filter === "all" ? PROJECTS : PROJECTS.filter(p => p.type === filter);
+  const filteredProjects = filter==="all" ? PROJECTS : PROJECTS.filter(p=>p.type===filter);
 
   return (
     <div style={{ background: "transparent", color: "#e2e8f0", fontFamily: "'DM Sans',sans-serif", overflowX: "hidden", minHeight: "100vh" }}>
@@ -717,29 +822,11 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
         @keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
         @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
         @keyframes pulseDot{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.6)}}
-        @keyframes auroraFloat1{
-          0%{transform:translate(0,0) scale(1)}
-          33%{transform:translate(6vw,4vh) scale(1.08)}
-          66%{transform:translate(-4vw,8vh) scale(.94)}
-          100%{transform:translate(0,0) scale(1)}
-        }
-        @keyframes auroraFloat2{
-          0%{transform:translate(0,0) scale(1)}
-          40%{transform:translate(-7vw,-5vh) scale(1.1)}
-          70%{transform:translate(5vw,6vh) scale(.92)}
-          100%{transform:translate(0,0) scale(1)}
-        }
-        @keyframes auroraFloat3{
-          0%{transform:translate(0,0) scale(1)}
-          30%{transform:translate(5vw,-6vh) scale(1.06)}
-          65%{transform:translate(-6vw,4vh) scale(.96)}
-          100%{transform:translate(0,0) scale(1)}
-        }
-        @keyframes auroraFloat4{
-          0%{transform:translate(0,0) rotate(0deg)}
-          50%{transform:translate(8vw,-8vh) rotate(20deg)}
-          100%{transform:translate(0,0) rotate(0deg)}
-        }
+        @keyframes loaderCount{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes auroraFloat1{0%{transform:translate(0,0) scale(1)}33%{transform:translate(6vw,4vh) scale(1.08)}66%{transform:translate(-4vw,8vh) scale(.94)}100%{transform:translate(0,0) scale(1)}}
+        @keyframes auroraFloat2{0%{transform:translate(0,0) scale(1)}40%{transform:translate(-7vw,-5vh) scale(1.1)}70%{transform:translate(5vw,6vh) scale(.92)}100%{transform:translate(0,0) scale(1)}}
+        @keyframes auroraFloat3{0%{transform:translate(0,0) scale(1)}30%{transform:translate(5vw,-6vh) scale(1.06)}65%{transform:translate(-6vw,4vh) scale(.96)}100%{transform:translate(0,0) scale(1)}}
+        @keyframes auroraFloat4{0%{transform:translate(0,0) rotate(0deg)}50%{transform:translate(8vw,-8vh) rotate(20deg)}100%{transform:translate(0,0) rotate(0deg)}}
         html{scroll-behavior:smooth;background:#020510}
         body{background:#020510}
         *{box-sizing:border-box}
@@ -754,7 +841,8 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
         }
         .section-bg-alt{background:linear-gradient(180deg,rgba(0,212,255,.025) 0%,rgba(139,92,246,.018) 50%,transparent 100%)}
         .cursor-ring{position:fixed;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(0,212,255,.55);pointer-events:none;z-index:9999;transition:opacity .3s}
-        .cursor-dot{position:fixed;width:8px;height:8px;border-radius:50%;background:#00d4ff;pointer-events:none;z-index:9999}
+        .cursor-dot{position:fixed;width:8px;height:8px;border-radius:50%;background:#00d4ff;pointer-events:none;z-index:9999;box-shadow:0 0 10px rgba(0,212,255,.8)}
+        .magnetic{display:inline-flex}
         @media(max-width:900px){
           .nd{display:none!important}.nm{display:block!important}
           .two-col{grid-template-columns:1fr!important}
@@ -762,10 +850,38 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
           .proj-grid{grid-template-columns:1fr!important}
           .ach-grid{grid-template-columns:1fr 1fr!important}
         }
-        @media(max-width:500px){
-          .skill-grid,.ach-grid{grid-template-columns:1fr!important}
-        }
+        @media(max-width:500px){.skill-grid,.ach-grid{grid-template-columns:1fr!important}}
       `}</style>
+
+      {/* ── Cinematic Loading Screen ── */}
+      {loading && (
+        <div ref={loaderRef} style={{ position:"fixed",inset:0,zIndex:9000,background:"#020510",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",clipPath:"inset(0 0 0% 0)" }}>
+          {/* Animated grid */}
+          <div style={{ position:"absolute",inset:0, backgroundImage:"linear-gradient(rgba(0,212,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.04) 1px,transparent 1px)", backgroundSize:"60px 60px", animation:"float 4s ease infinite" }} />
+          {/* Center content */}
+          <div style={{ position:"relative",textAlign:"center" }}>
+            <div style={{ fontFamily:"'Orbitron',monospace",fontWeight:900,fontSize:"clamp(36px,8vw,80px)",background:"linear-gradient(135deg,#fff 30%,#00d4ff 60%,#a855f7)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:4,marginBottom:8,animation:"loaderCount .6s ease both" }}>
+              KV
+            </div>
+            <div style={{ fontFamily:"'Space Mono',monospace",fontSize:11,color:"#475569",letterSpacing:6,textTransform:"uppercase",marginBottom:40 }}>
+              Portfolio Loading
+            </div>
+            {/* Progress bar */}
+            <div style={{ width:280,height:1,background:"rgba(255,255,255,.08)",borderRadius:1,overflow:"hidden",margin:"0 auto 16px" }}>
+              <div ref={loaderBarRef} style={{ height:"100%",width:`${loadPct}%`,background:"linear-gradient(90deg,#00d4ff,#a855f7)",borderRadius:1,transition:"width .12s ease",boxShadow:"0 0 12px rgba(0,212,255,.6)" }} />
+            </div>
+            <div style={{ fontFamily:"'Orbitron',monospace",fontSize:22,fontWeight:900,background:"linear-gradient(90deg,#00d4ff,#a855f7)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>
+              {loadPct}%
+            </div>
+          </div>
+          {/* Corner accents */}
+          {["top:24px;left:24px;borderTop","top:24px;right:24px;borderTop","bottom:24px;left:24px;borderBottom","bottom:24px;right:24px;borderBottom"].map((s,i) => {
+            const [t,lr,bd] = s.split(";");
+            const isRight = lr.includes("right");
+            return <div key={i} style={{ position:"absolute",[t.split(":")[0]]:t.split(":")[1],[lr.split(":")[0]]:lr.split(":")[1], width:40,height:40, borderTop: bd==="borderTop"?"1px solid rgba(0,212,255,.4)":undefined, borderBottom: bd==="borderBottom"?"1px solid rgba(0,212,255,.4)":undefined, borderLeft: !isRight?"1px solid rgba(0,212,255,.4)":undefined, borderRight: isRight?"1px solid rgba(0,212,255,.4)":undefined }} />;
+          })}
+        </div>
+      )}
 
       {/* Custom cursor */}
       <div ref={cursorRef}  className="cursor-ring" />
@@ -777,9 +893,9 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
       <Nav active={active} />
 
       {/* ════════════ HERO ════════════ */}
-      <section id="home" style={{ minHeight: "100vh", display: "flex", alignItems: "center", position: "relative", padding: "0 6vw", overflow: "hidden", zIndex: 2 }}>
+      <section id="home" ref={heroSectionRef} style={{ minHeight: "100vh", display: "flex", alignItems: "center", position: "relative", padding: "0 6vw", overflow: "hidden", zIndex: 2 }}>
         {/* Wireframe globe */}
-        <div style={{ position: "absolute", right: "3%", top: "6%", width: "min(430px,45vw)", height: "min(430px,45vw)", opacity: .13, pointerEvents: "none" }}>
+        <div className="globe-wrap parallax-slow" style={{ position: "absolute", right: "3%", top: "6%", width: "min(430px,45vw)", height: "min(430px,45vw)", opacity: .13, pointerEvents: "none" }}>
           <svg viewBox="0 0 200 200" style={{ width: "100%", height: "100%", animation: "spin 30s linear infinite" }}>
             <circle cx="100" cy="100" r="92" fill="none" stroke="#00d4ff" strokeWidth=".5" />
             {[15,30,45,60,75,90,105,120,135,150,165].map(y => (
@@ -791,7 +907,7 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
           </svg>
         </div>
 
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 800 }}>
+        <div className="hero-content" style={{ position: "relative", zIndex: 1, maxWidth: 800 }}>
           <div ref={heroTagRef} style={{ fontFamily: "'Orbitron',monospace", fontSize: 11, letterSpacing: 5, color: "#a855f7", textTransform: "uppercase", marginBottom: 22, display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ width: 32, height: 1, background: "#a855f7", display: "inline-block" }} />
             Portfolio 2025 · Open to Opportunities
@@ -808,18 +924,18 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
             4 internships · 5 production projects · Top 25% LeetCode. Ready to make an impact.
           </p>
           <div ref={heroBtnsRef} style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 44 }}>
-            <button onClick={() => document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" })}
-              style={{ padding: "14px 30px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#00d4ff,#a855f7)", color: "#fff", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all .3s", backgroundSize: "200% 200%", animation: "gradShift 4s ease infinite" }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 16px 36px rgba(0,212,255,.4)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>View Projects</button>
+            <button className="magnetic" onClick={() => document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" })}
+              style={{ padding: "14px 30px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#00d4ff,#a855f7)", color: "#fff", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "box-shadow .3s", backgroundSize: "200% 200%", animation: "gradShift 4s ease infinite" }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 16px 36px rgba(0,212,255,.45)"; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = ""; }}>View Projects</button>
             <a href={SOCIAL.github} target="_blank" rel="noreferrer"
               style={{ padding: "14px 28px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: "#fff", fontFamily: "'Space Mono',monospace", fontSize: 12, textDecoration: "none", transition: "all .3s", display: "inline-block" }}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,.12)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,.04)"; e.currentTarget.style.transform = ""; }}><Icon name="github" size={14} color="#fff" style={{marginRight:6}} /> GitHub</a>
-            <button onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })}
+            <button className="magnetic" onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })}
               style={{ padding: "14px 28px", borderRadius: 10, border: "1px solid rgba(0,212,255,.35)", background: "rgba(0,212,255,.06)", color: "#fff", fontFamily: "'Space Mono',monospace", fontSize: 12, cursor: "pointer", transition: "all .3s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,212,255,.18)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,212,255,.06)"; e.currentTarget.style.transform = ""; }}>Hire Me →</button>
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,212,255,.18)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,212,255,.06)"; }}>Hire Me →</button>
           </div>
           {/* Social icons */}
           <div style={{ display: "flex", gap: 14 }}>
@@ -1057,7 +1173,7 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
               ><Icon name={s.iconName} size={14} color={s.color} /> {s.label}</a>
             ))}
           </div>
-          <div className="glass" style={{ borderRadius: 22, padding: "44px", border: "1px solid rgba(0,212,255,.12)", position: "relative", overflow: "hidden" }}>
+          <div className="contact-form glass" style={{ borderRadius: 22, padding: "44px", border: "1px solid rgba(0,212,255,.12)", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#00d4ff,#a855f7)" }} />
             {sent ? (
               <div style={{ textAlign: "center", padding: "30px 0" }}>
@@ -1127,7 +1243,7 @@ function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ
           <a href={`mailto:${SOCIAL.email}`} style={{ color: "#00d4ff", fontSize: 12, fontFamily: "'Space Mono',monospace", textDecoration: "none" }}>{SOCIAL.email}</a>
         </div>
         <p style={{ color: "#1e293b", fontSize: 12, fontFamily: "'Space Mono',monospace", margin: 0 }}>
-          Built with React · vijaykarri220910125@gmail.com · 8143957022   © 2025 Karri Vijay
+          Built with React · GSAP SplitText · ScrollTrigger · ScrambleText · © 2025 Karri Vijay
         </p>
       </footer>
     </div>
