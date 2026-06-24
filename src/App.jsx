@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
    EmailJS loaded via CDN for real Gmail delivery
 ───────────────────────────────────────────── */
 
-/* ══ EMAILJS CONFIG — fill these 3 values ══
+/* ══ EMAILJS CONFIG — fill these 3 values
    1. Go to https://emailjs.com → free account
    2. Add Service → Gmail → connect vijaykarri220910125@gmail.com
    3. Create Template with variables: {{from_name}} {{from_email}} {{message}}
