@@ -543,7 +543,6 @@ export default function Portfolio() {
       "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js",
       "https://assets.codepen.io/16327/SplitText3.min.js",
-      "https://assets.codepen.io/16327/ScrambleTextPlugin3.min.js",
       "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js",
     ];
     const load = src => new Promise(res => {
@@ -564,6 +563,26 @@ export default function Portfolio() {
       }
     })();
   }, []);
+
+/* ───── Local scramble text fallback (replaces GSAP ScrambleTextPlugin) ───── */
+function localScramble(el, { duration = 900, chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", ease = t => t } = {}) {
+  if (!el) return;
+  const original = el.textContent || "";
+  const len = original.length;
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const reveal = Math.floor(ease(t) * len);
+    let out = "";
+    for (let i = 0; i < len; i++) {
+      out += i < reveal ? original[i] : chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    el.textContent = out;
+    if (t < 1) requestAnimationFrame(frame);
+    else el.textContent = original;
+  }
+  requestAnimationFrame(frame);
+}
 
   /* Custom cursor */
   useEffect(() => {
@@ -604,14 +623,18 @@ export default function Portfolio() {
       }, "-=.35");
 
     /* ScrambleText hover on name */
-    if (Scramble && heroNameRef.current) {
-      const orig = heroNameRef.current.textContent;
+    const orig = heroNameRef.current?.textContent || '';
+    if (heroNameRef.current) {
       heroNameRef.current.addEventListener("mouseenter", () => {
-        gsap.to(heroNameRef.current, {
-          duration: .9,
-          scrambleText: { text: orig, chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", revealDelay: .3, speed: 1.2 },
-          ease: "none",
-        });
+        if (Scramble) {
+          gsap.to(heroNameRef.current, {
+            duration: .9,
+            scrambleText: { text: orig, chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", revealDelay: .3, speed: 1.2 },
+            ease: "none",
+          });
+        } else {
+          localScramble(heroNameRef.current, { duration: 900 });
+        }
       });
     }
   }, []);
